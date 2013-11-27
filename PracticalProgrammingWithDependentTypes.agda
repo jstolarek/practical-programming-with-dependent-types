@@ -340,15 +340,102 @@ fweak (fs f) = fs (fweak f)
 -- Implement vtab, the inverse of vproj, tabulating a function over finite sets
 -- as a vector.
 
--- Let's begin by implementing vproj:
+-- Below is vproj function as defined in the paper in Section 3.1:
 
 vproj : {X : Set} {n : Nat} → Vec X n → Fin n → X
 vproj (vcons x xs) fz     = x
 vproj (vcons x xs) (fs i) = vproj xs i
 
--- I think this is incorrect. I think I should define inverse function
--- (http://www.cs.nott.ac.uk/~txa/g53cfr/l04.html/l04.html) and use it to define
--- elements of a vector.
+-- In other words vproj is an index function (ie. given an index and a
+-- vector it returns element under specified index). My understanding
+-- of vtab function is that it creates vector of a given size n using
+-- a function from finite set of size n to some other Set. It took me
+-- a moment to get this function right, although now seeing the result
+-- it is not that difficult. In the case of zero-sized vector we
+-- return vnil, which is obvious. In the recursive case we apply our
+-- constructing function to zero - we want our n-sized vector to begin
+-- with 0-indexed element. The tricky part is the recursive call,
+-- where we have to modify function passed to vtab. We increase the
+-- passed parameter by one and use original f to construct new element
+-- of a vector. In this way, with every recursive call, we increase by
+-- one parameter passed to f.
+
 vtab : {X : Set} {n : Nat} → (Fin n → X) → Vec X n
-vtab {X} {zero} f  = vnil
-vtab {X} {suc n} f = vcons (f fmax) (vtab (λ i → f (fweak i)))
+vtab {X} {zero}  f = vnil
+vtab {X} {suc n} f = vcons (f fz) (vtab (λ i → f (fs i)))
+
+-- As a sanity check let's define a function from Fin n to Nat that
+-- acts as identity function: for fz it return zero, for (fs fz) it
+-- returns (suc zero) and so on:
+
+f : {n : Nat} → Fin n → Nat
+f fz       = zero
+f (fs fin) = suc (f fin)
+
+-- When passed to vtab it will create a vector containing successive
+-- natural numbers. You can verify this by pressing C-c C-n and
+-- typing:
+--
+--   vtab {Nat} {suc (suc (suc zero))} f
+--
+-- which will create a vector of size three containing three
+-- consecutive natural numbers: 0, 1 and 2:
+--
+--   vcons zero (vcons (suc zero) (vcons (suc (suc zero)) vnil))
+
+-- Exercise 15
+-- ~~~~~~~~~~~
+-- Devise an inductive family, OPF m n which gives a unique first-order
+-- representation of exactly the order-preserving functions in Fin m →
+-- Fin n. Give your family a semantics by implementing:
+
+-- opf : {m n : Nat} → OPF m n → Fin m → Fin n
+
+-- Hint from #agda channel: Your encoding of an OPF from Fin (suc m)
+-- to Fin n should be in terms of an OPF from Fin m to Fin n
+
+-- I have no idea how to complete this exercise
+
+-- Exercise 16
+-- ~~~~~~~~~~~
+-- Implement identity and composition:
+
+-- iOPF : {n : Nat} → OPF n n
+-- iOPF {n} = ?
+
+-- cOPF : {m n l : Nat} → OPF m n → OPF l m → OPF l n
+-- cOPF f g = ?
+
+-- I have no idea how to complete this exercise
+
+-- Section 4.1
+
+data Tm : Nat → Set where
+  var : {n : Nat} → Fin n → Tm n
+  lda : {n : Nat} → Tm (suc n) → Tm n
+  app : {n : Nat} → Tm n → Tm n → Tm n
+
+wren : {m n : Nat} → (Fin m → Fin n) → Fin (suc m) → Fin (suc n)
+wren ρ fz     = fz
+wren ρ (fs i) = fs (ρ i)
+
+-- Exercise 17
+-- ~~~~~~~~~~~
+
+ren : {m n : Nat} → (Fin m → Fin n) → Tm m → Tm n
+ren ρ (var x)     = var (ρ x)
+ren ρ (lda t)     = lda (ren (wren ρ) t)
+ren ρ (app t1 t2) = app (ren ρ t1) (ren ρ t2)
+
+-- Exercise 18
+-- ~~~~~~~~~~~
+
+wsub : {m n : Nat} → (Fin m → Tm n) → Fin (suc m) → Tm (suc n)
+wsub ρ fz     = var fz
+wsub ρ (fs i) = ren fs (ρ i)
+
+sub : {m n : Nat} → (Fin m → Tm n) → Tm m → Tm n
+sub ρ (var x)     = ρ x
+sub ρ (lda i)     = lda (sub (wsub ρ) i)
+sub ρ (app t1 t2) = app (sub ρ t1) (sub ρ t2)
+
