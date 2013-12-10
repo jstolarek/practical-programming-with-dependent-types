@@ -298,7 +298,7 @@ vjoin : {X : Set} {n : Nat} → Vec (Vec X n) n → Vec X n
 vjoin vnil                    = vnil
 vjoin (vcons (vcons x xs) vs) = vcons x (vjoin (vmap vtail vs))
 
--- vap plays role of ap.
+-- vapp plays role of ap.
 
 -- See also: Materials for "Dependently Typed Metaprogramming (in Agda)" by
 -- Conor McBride, Exercise 1.6.
@@ -310,7 +310,6 @@ vjoin (vcons (vcons x xs) vs) = vcons x (vjoin (vmap vtail vs))
 data Fin : Nat → Set where
   fz : {n : Nat} → Fin (suc n)
   fs : {n : Nat} → Fin n → Fin (suc n)
-
 -- Exercise 13
 -- ~~~~~~~~~~~
 -- Implement fmax (each nonempty set’s maximum value) and fweak (the function
@@ -408,19 +407,39 @@ f (fs fin) = suc (f fin)
 
 -- I have no idea how to complete this exercise
 
--- Section 4.1
+-- Exercise : Renaming and Substitution
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+-- Solving these exercises requires understanding of de Bruijn
+-- indices. If you had no contact with the concept of de Bruijn
+-- indices you need to do some additional reading. I highly recommend
+-- 6th chapter of Benjamin Pierce's book "Types and Programming
+-- Languages" (TAPL). In my comments I will refer to definitions given
+-- in that book.
+
+-- Definition of abstract syntax used for nameless representation of
+-- terms. Index of Tm says how many free variables an expression can
+-- contain.
 data Tm : Nat → Set where
   var : {n : Nat} → Fin n → Tm n
   lda : {n : Nat} → Tm (suc n) → Tm n
   app : {n : Nat} → Tm n → Tm n → Tm n
 
+-- Exercise 17
+-- ~~~~~~~~~~~
+-- Use wren to help you implement the renaming traversal
+
+-- Renaming (aka "shifting") is given as definition 6.2.1 in TAPL.
+-- ρ is the shifting function that renames variables if they are above
+-- the cutoff threashold - see first equation in definition 6.2.1.
+
+-- Weakening of renaming function is used when we introduce a new
+-- binder with a lambda abstraction. Since now we have one more
+-- binder than previously we have to modify the renaming function to
+-- work on a larger range of binders.
 wren : {m n : Nat} → (Fin m → Fin n) → Fin (suc m) → Fin (suc n)
 wren ρ fz     = fz
 wren ρ (fs i) = fs (ρ i)
-
--- Exercise 17
--- ~~~~~~~~~~~
 
 ren : {m n : Nat} → (Fin m → Fin n) → Tm m → Tm n
 ren ρ (var x)     = var (ρ x)
@@ -429,6 +448,10 @@ ren ρ (app t1 t2) = app (ren ρ t1) (ren ρ t2)
 
 -- Exercise 18
 -- ~~~~~~~~~~~
+-- Develop weakening for substitutions, then use it to go under lda in
+-- the traversal.
+
+-- Substitution is given by definition 6.2.4 in TAPL.
 
 wsub : {m n : Nat} → (Fin m → Tm n) → Fin (suc m) → Tm (suc n)
 wsub ρ fz     = var fz
@@ -436,5 +459,10 @@ wsub ρ (fs i) = ren fs (ρ i)
 
 sub : {m n : Nat} → (Fin m → Tm n) → Tm m → Tm n
 sub ρ (var x)     = ρ x
-sub ρ (lda i)     = lda (sub (wsub ρ) i)
+sub ρ (lda t)     = lda (sub (wsub ρ) t)
 sub ρ (app t1 t2) = app (sub ρ t1) (sub ρ t2)
+
+-- Exercise 19 (For the brave)
+-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-- Refactor this development, abstracting the weakening-then-traversal
+-- pattern. If you need a hint, see chapter 7 of [23].
