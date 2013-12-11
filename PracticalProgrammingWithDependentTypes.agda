@@ -466,3 +466,44 @@ sub ρ (app t1 t2) = app (sub ρ t1) (sub ρ t2)
 -- ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 -- Refactor this development, abstracting the weakening-then-traversal
 -- pattern. If you need a hint, see chapter 7 of [23].
+
+-- Section 4.2
+
+data SType : Set where
+  sNat : SType
+  sFun : (σ : SType) → (τ : SType) → SType
+
+data SCtxt : Nat → Set where
+  empty : SCtxt zero
+  bind  : {n : Nat} → (Γ : SCtxt n) → (σ : SType) → SCtxt (suc n)
+
+sproj : {n : Nat} → SCtxt n → Fin n → SType
+sproj (bind Γ σ) fz     = σ
+sproj (bind Γ σ) (fs i) = sproj Γ i
+
+data STm {n : Nat} (Γ : SCtxt n) : (τ : SType) → Set where
+  svar : (i : Fin n) → STm Γ (sproj Γ i)
+  slda : {σ τ : SType} → (t : STm {suc n} (bind Γ σ) τ) → STm Γ (sFun σ τ)
+  sapp : {σ τ : SType} → (f : STm Γ (sFun σ τ)) → (s : STm Γ σ) → STm Γ τ
+
+renm : {m n : Nat} {τ : SType} {Γ : SCtxt m} {Δ : SCtxt n}
+     → (ρ : Fin m → Fin n) → STm Γ τ → STm Δ τ
+renm ρ (svar i)   = {!!}
+renm ρ (slda t)   = {!!}
+renm ρ (sapp f s) = {!!}
+
+data SVar : {n : Nat} → (Γ : SCtxt n) → SType → Set where
+  vz : {n : Nat} → {Γ : SCtxt n} → {σ : SType} → SVar (bind Γ σ) σ
+  vs : {n : Nat} → {Γ : SCtxt n} → {σ : SType} → {τ : SType} →
+       (i : SVar Γ τ) → SVar (bind Γ σ) τ
+
+data STmT {n : Nat} (Γ : SCtxt n) : (τ : SType) → Set where
+  svar : {  τ : SType} → (i : SVar Γ τ) → STmT Γ τ
+  slda : {σ τ : SType} → (t : STmT {suc n} (bind Γ σ) τ) → STmT Γ (sFun σ τ)
+  sapp : {σ τ : SType} → (f : STmT Γ (sFun σ τ)) → (s : STmT Γ σ) → STmT Γ τ
+
+ren2 : {m n : Nat} {τ : SType} {Γ : SCtxt m} {Δ : SCtxt n}
+     → (ρ : SVar Γ τ → SVar Δ τ) → STmT Γ τ → STmT Δ τ
+ren2 ρ (svar i)   = svar (ρ i)
+ren2 ρ (slda t)   = slda (ren2 {!!} t)
+ren2 ρ (sapp f s) = sapp (ren2 {!!} f) (ren2 {!!} s)
